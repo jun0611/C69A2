@@ -46,11 +46,11 @@ int allocate_frame(pgtbl_entry_t *p) {
 		//init_swap ???
 		//swap out dirty page
 		if(victim_pte->frame & PG_DIRTY) {
-			victim_pte->frame = victim_pte->frame | PG_ONSWAP;
 			evict_dirty_count++;
 		} else {
 			evict_clean_count++;
 		}
+		victim_pte->frame = victim_pte->frame | PG_ONSWAP;
 		victim_pte->swap_off = swap_pageout(victim_frame, victim_swap_off)
 		//set valid bit to invalid and 
 		victim_pte->frame = (victim_pte->frame | PG_VALID) ^ PG_VALID;
@@ -149,15 +149,38 @@ char *find_physpage(addr_t vaddr, char type) {
 
 	// IMPLEMENTATION NEEDED
 	// Use top-level page directory to get pointer to 2nd-level page table
-	(void)idx; // To keep compiler happy - remove when you have a real use.
-
+	// To keep compiler happy - remove when you have a real use.
+	pgdir_entry_t dirEntry = pgdir[idx];
 
 	// Use vaddr to get index into 2nd-level page table and initialize 'p'
-
-
+	addr_t pageTableIndex = (vaddr >> PAGE_SHIFT) & PGTBL_MASK;
+	p = dirEntry.pde[pageTableIndex];
 
 	// Check if p is valid or not, on swap or not, and handle appropriately
+	if (p->frame & PG_VALID) {
+		//p is valid
+		hit_count++;
+	}
+	else {
+		//p is invalid
+		miss_count++;
 
+		//allocate frame, and assign frame number to page table entry
+		int allocFrame =  allocate_frame(p)
+		p->frame = p->frame | (allocFrame << PAGE_SHIFT);
+
+		if (p->frame & PG_ONSWAP) {
+			//p is on swap
+			int swapOffset = p->swap_off;
+			swap_pagein(allocFrame, swapOffset);
+
+		}
+		else {
+			//p is not on swap
+			init_frame(allocFrame, vaddr)
+		}
+
+	}
 
 
 	// Make sure that p is marked valid and referenced. Also mark it
