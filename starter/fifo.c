@@ -13,7 +13,7 @@ extern int debug;
 extern struct frame *coremap;
 
 //Maintains a list of frame numbers of the pages that have been referenced
-int queue[memsize];
+int *queue;
 
 //Number of times we have evicted. 
 int numberOfEvicts = 0;
@@ -39,9 +39,19 @@ int fifo_evict() {
  * Input: The page table entry for the page that is being accessed.
  */
 void fifo_ref(pgtbl_entry_t *p) {
-	if ((p->frame & PG_VALID) == 0) {
-		//This means the page is not in our queue, so we add it. 
-		queue[numberOfInserts] = (p->frame >> PAGE_SHIFT);
+	int frameNumber = p->frame >> PAGE_SHIFT;
+	int frameInQueue = 0;
+	//check if this frame number is already in the queue
+	for(int i = 0; i < memsize; i++){
+		if(queue[i] == frameNumber){
+			frameInQueue = 1;
+			break;
+		}
+	}
+
+	if(frameInQueue == 0){
+		//Frame is not in queue, so we add it
+		queue[numberOfInserts] = frameNumber;
 		numberOfInserts += 1;
 		if (numberOfInserts == memsize){
 			numberOfInserts = 0;
@@ -54,4 +64,5 @@ void fifo_ref(pgtbl_entry_t *p) {
  * replacement algorithm 
  */
 void fifo_init() {
+	queue = (int *)malloc(sizeof(int) * memsize);
 }
