@@ -51,7 +51,7 @@ int allocate_frame(pgtbl_entry_t *p) {
 			evict_clean_count++;
 		}
 		victim_pte->frame = victim_pte->frame | PG_ONSWAP;
-		victim_pte->swap_off = swap_pageout(victim_frame, victim_swap_off)
+		victim_pte->swap_off = swap_pageout(victim_frame, victim_swap_off);
 		//set valid bit to invalid and 
 		victim_pte->frame = (victim_pte->frame | PG_VALID) ^ PG_VALID;
 	}
@@ -146,15 +146,21 @@ void init_frame(int frame, addr_t vaddr) {
 char *find_physpage(addr_t vaddr, char type) {
 	pgtbl_entry_t *p=NULL; // pointer to the full page table entry for vaddr
 	unsigned idx = PGDIR_INDEX(vaddr); // get index into page directory
+	pgtbl_entry_t *pgtbl;
 
 	// IMPLEMENTATION NEEDED
 	// Use top-level page directory to get pointer to 2nd-level page table
 	// To keep compiler happy - remove when you have a real use.
 	pgdir_entry_t dirEntry = pgdir[idx];
+	if(dirEntry.pde == 0){
+		pgdir[idx] = init_second_level();
+		dirEntry = pgdir[idx];
+	}
 
 	// Use vaddr to get index into 2nd-level page table and initialize 'p'
-	addr_t pageTableIndex = (vaddr >> PAGE_SHIFT) & PGTBL_MASK;
-	p = dirEntry.pde[pageTableIndex];
+	addr_t pageTableIndex = PGTBL_INDEX(vaddr);
+	pgtbl = (pgtbl_entry_t *)(dirEntry.pde & PAGE_MASK);
+	p = &pgtbl[pageTableIndex];
 
 	// Check if p is valid or not, on swap or not, and handle appropriately
 	if (p->frame & PG_VALID) {
@@ -166,28 +172,25 @@ char *find_physpage(addr_t vaddr, char type) {
 		miss_count++;
 
 		//allocate frame, and assign frame number to page table entry
-		int allocFrame =  allocate_frame(p)
+		int allocFrame =  allocate_frame(p);
 		p->frame = p->frame | (allocFrame << PAGE_SHIFT);
 
 		if (p->frame & PG_ONSWAP) {
 			//p is on swap
 			int swapOffset = p->swap_off;
 			swap_pagein(allocFrame, swapOffset);
-
 		}
 		else {
 			//p is not on swap
-			init_frame(allocFrame, vaddr)
+			init_frame(allocFrame, vaddr);
 		}
-
 	}
-
 
 	// Make sure that p is marked valid and referenced. Also mark it
 	// dirty if the access type indicates that the page will be written to.
 	p->frame = (p->frame | PG_VALID) | PG_REF;
 	if (type == 'M') {
-		p->fram = p->fram | PG_DIRTY;
+		p->frame = p->frame | PG_DIRTY;
 	}
 	// Call replacement algorithm's ref_fcn for this page
 	ref_fcn(p);
