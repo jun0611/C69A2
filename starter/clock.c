@@ -12,7 +12,7 @@ extern int debug;
 
 extern struct frame *coremap;
 
-int *clock;
+int clock[memsize];
 
 /* Page to evict is chosen using the clock algorithm.
  * Returns the page frame number (which is also the index in the coremap)
@@ -47,7 +47,6 @@ void clock_ref(pgtbl_entry_t *p) {
  */
 void clock_init() {
 	
-	clock = malloc(memsize * sizeof(int));
 	for (int i = 0; i < memsize; i++) {
 		clock[i] = 0;
 	}
