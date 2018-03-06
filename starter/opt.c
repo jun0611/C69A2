@@ -12,9 +12,11 @@ extern int debug;
 
 extern struct frame *coremap;
 
+#define buff_size 256;
 int *page_list;
 int *pages;
 int index;
+int page_list_size;
 
 /* Page to evict is chosen using the optimal (aka MIN) algorithm. 
  * Returns the page frame number (which is also the index in the coremap)
@@ -24,9 +26,8 @@ int opt_evict() {
 	
 	int frame = -1;
 	int greatest_index = 0;
-	int page_list_size = sizeof(page_list)/sizeof(page_list[0]);
 	int i = 0;
-	while((pages[i] != -1) && (i != memsize) {
+	while((pages[i] != -1) && (i != memsize)) {
 		//first index where pages[i] appears in the future references
 		int appearence = -1;
 		//try to find pages[i] in the furture references
@@ -68,5 +69,41 @@ void opt_ref(pgtbl_entry_t *p) {
  */
 void opt_init() {
 
+	pages = malloc(memsize * sizeof(int));
+
+	FILE *fp;
+	fp = fopen(tracefile, "r");
+
+	//read tracefile to get length of page_list
+	if (fp == NULL) {
+        printf ("Error opening the file\n\n'");
+        exit(1);
+    } else {
+    	// initialize the size of page_list
+    	char buff[buff_size];
+    	while(fgets(buff, buff_size, fp) != NULL) {
+    		page_list_size ++;
+    	}
+    	fclose(fp);
+    }
+
+    page_list = malloc(page_list_size * sizeof(int));
+
+    //open tracefile for reading again to fill page_list
+    fp = fopen(tracefile, "r");
+	if (fp == NULL) {
+        printf ("Error opening the file\n\n'");
+        exit(1);
+    } else {
+    	char type;
+    	int v_addr;
+    	int count = 0;
+    	while(fgets(buff, buff_size, fp) != NULL) {
+    		fscanf(buff, "%c %x", &type, &v_addr);
+    		page_list[count] = v_addr;
+    		count ++;
+    	}
+    	fclose(fp);
+    }
 }
 
