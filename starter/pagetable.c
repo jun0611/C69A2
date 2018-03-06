@@ -43,7 +43,6 @@ int allocate_frame(pgtbl_entry_t *p) {
 		pgtbl_entry_t *victim_pte = coremap[frame].pte;
 		unsigned int victim_frame = (victim_pte->frame) >> PAGE_SHIFT;
 		off_t victim_swap_off = victim_pte->swap_off;
-		//init_swap ???
 		//swap out dirty page
 		if(victim_pte->frame & PG_DIRTY) {
 			evict_dirty_count++;
@@ -159,7 +158,7 @@ char *find_physpage(addr_t vaddr, char type) {
 
 	// Use vaddr to get index into 2nd-level page table and initialize 'p'
 	addr_t pageTableIndex = PGTBL_INDEX(vaddr);
-	pgtbl = (pgtbl_entry_t *)(dirEntry.pde & PAGE_MASK);
+	pgtbl = (pgtbl_entry_t *)(dirEntry.pde);
 	p = &pgtbl[pageTableIndex];
 
 	// Check if p is valid or not, on swap or not, and handle appropriately
@@ -173,16 +172,18 @@ char *find_physpage(addr_t vaddr, char type) {
 
 		//allocate frame, and assign frame number to page table entry
 		int allocFrame =  allocate_frame(p);
-		p->frame = p->frame | (allocFrame << PAGE_SHIFT);
+		p->frame = allocFrame << PAGE_SHIFT;
 
 		if (p->frame & PG_ONSWAP) {
 			//p is on swap
 			int swapOffset = p->swap_off;
 			swap_pagein(allocFrame, swapOffset);
+			p->frame = p->frame ^ PG_ONSWAP;
 		}
 		else {
 			//p is not on swap
 			init_frame(allocFrame, vaddr);
+			p->swap_off = INVALID_SWAP;
 		}
 	}
 
@@ -192,6 +193,7 @@ char *find_physpage(addr_t vaddr, char type) {
 	if (type == 'M') {
 		p->frame = p->frame | PG_DIRTY;
 	}
+	ref_count += 1;
 	// Call replacement algorithm's ref_fcn for this page
 	ref_fcn(p);
 
