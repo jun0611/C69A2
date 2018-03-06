@@ -26,11 +26,11 @@ int opt_evict() {
 	int greatest_index = 0;
 	int page_list_size = sizeof(page_list)/sizeof(page_list[0]);
 	int i = 0;
-	while((pages[i] != -1) && (i != memsize) {
+	while((pages[i] != -1) && (i != memsize)) {
 		//first index where pages[i] appears in the future references
 		int appearence = -1;
 		//try to find pages[i] in the furture references
-		for(j = i; j < page_list_size; j++) {
+		for(int j = i; j < page_list_size; j++) {
 			if (pages[i] == page_list[j]) {
 				appearence = j;
 				//break out of loop
