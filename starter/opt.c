@@ -15,8 +15,8 @@ extern struct frame *coremap;
 #define buff_size 256;
 int *page_list;
 int *pages;
-int index;
-int page_list_size;
+int page_list_size = 0;
+int page_list_index = 0;
 
 /* Page to evict is chosen using the optimal (aka MIN) algorithm. 
  * Returns the page frame number (which is also the index in the coremap)
@@ -31,7 +31,7 @@ int opt_evict() {
 		//first index where pages[i] appears in the future references
 		int appearence = -1;
 		//try to find pages[i] in the furture references
-		for(j = index; j < page_list_size; j++) {
+		for(int j = i; j < page_list_size; j++) {
 			if (pages[i] == page_list[j]) {
 				appearence = j;
 				//break out of loop
@@ -59,8 +59,8 @@ int opt_evict() {
 void opt_ref(pgtbl_entry_t *p) {
 
 	int frame_num = p->frame >> PAGE_SHIFT;
-	pages[frame_num] = page_list[index];
-	index = index ++;
+	pages[frame_num] = page_list[page_list_index];
+	page_list_index += 1;
 	return;
 }
 
