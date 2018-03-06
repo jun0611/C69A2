@@ -12,6 +12,9 @@ extern int debug;
 
 extern struct frame *coremap;
 
+int *current;
+int index;
+
 /* Page to evict is chosen using the optimal (aka MIN) algorithm. 
  * Returns the page frame number (which is also the index in the coremap)
  * for the page that is to be evicted.
@@ -27,6 +30,8 @@ int opt_evict() {
  */
 void opt_ref(pgtbl_entry_t *p) {
 
+	current[index] = p->frame >> PAGE_SHIFT;
+	index = index ++;
 	return;
 }
 
