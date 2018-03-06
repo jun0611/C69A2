@@ -30,7 +30,7 @@ int opt_evict() {
 		//first index where pages[i] appears in the future references
 		int appearence = -1;
 		//try to find pages[i] in the furture references
-		for(j = i; j < page_list_size; j++) {
+		for(int j = i; j < page_list_size; j++) {
 			if (pages[i] == page_list[j]) {
 				appearence = j;
 				//break out of loop
