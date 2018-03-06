@@ -172,19 +172,18 @@ char *find_physpage(addr_t vaddr, char type) {
 
 		//allocate frame, and assign frame number to page table entry
 		int allocFrame =  allocate_frame(p);
-		p->frame = allocFrame << PAGE_SHIFT;
 
 		if (p->frame & PG_ONSWAP) {
 			//p is on swap
 			int swapOffset = p->swap_off;
 			swap_pagein(allocFrame, swapOffset);
-			p->frame = p->frame ^ PG_ONSWAP;
 		}
 		else {
 			//p is not on swap
 			init_frame(allocFrame, vaddr);
 			p->swap_off = INVALID_SWAP;
 		}
+		p->frame = allocFrame << PAGE_SHIFT;
 	}
 
 	// Make sure that p is marked valid and referenced. Also mark it
