@@ -32,6 +32,9 @@ int clock_evict() {
 	}
 	frame = clock_hand;
 	clock_hand ++;
+	if(clock_hand == memsize) {
+		clock_hand = 0;
+	}
 	return frame;
 }
 
