@@ -103,6 +103,7 @@ void opt_init() {
     	char type;
     	int v_addr;
     	int count = 0;
+    	char buff[buff_size];
     	while(fgets(buff, buff_size, fp) != NULL) {
     		fscanf(fp, "%c %x", &type, &v_addr);
     		page_list[count] = v_addr;
