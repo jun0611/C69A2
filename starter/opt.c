@@ -12,7 +12,9 @@ extern int debug;
 
 extern struct frame *coremap;
 
-#define buff_size 256;
+extern char* tracefile;
+
+#define buff_size 256
 int *page_list;
 int *pages;
 int page_list_size = 0;
@@ -35,7 +37,7 @@ int opt_evict() {
 			if (pages[i] == page_list[j]) {
 				appearence = j;
 				//break out of loop
-				j == page_list_size;
+				j = page_list_size;
 			}
 		}
 		//if pages[i] is no longer referenced
@@ -70,6 +72,9 @@ void opt_ref(pgtbl_entry_t *p) {
 void opt_init() {
 
 	pages = malloc(memsize * sizeof(int));
+	for (int i = 0; i < memsize; i++) {
+		pages[i] = -1;
+	}
 
 	FILE *fp;
 	fp = fopen(tracefile, "r");
@@ -99,7 +104,7 @@ void opt_init() {
     	int v_addr;
     	int count = 0;
     	while(fgets(buff, buff_size, fp) != NULL) {
-    		fscanf(buff, "%c %x", &type, &v_addr);
+    		fscanf(fp, "%c %x", &type, &v_addr);
     		page_list[count] = v_addr;
     		count ++;
     	}
