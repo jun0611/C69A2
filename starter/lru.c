@@ -51,9 +51,6 @@ void lru_ref(pgtbl_entry_t *p) {
 		//Frame is not in stack, so we add it
 		frameStack[numberOfFrames] = frameNumber;
 		numberOfFrames += 1;
-		if (numberOfFrames == memsize){
-			numberOfFrames = 0;
-		}
 	}
 
 	else {
@@ -62,7 +59,7 @@ void lru_ref(pgtbl_entry_t *p) {
 		for(int i = frameInStack; i < memsize - 1; i++){
 			frameStack[i] = frameStack[i+1];
 		}
-		frameStack[memsize-1] = frameNumber;
+		frameStack[numberOfFrames-1] = frameNumber;
 	}
 
 	return;
