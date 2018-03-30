@@ -64,7 +64,8 @@ struct ext2_dir_entry_2 findDirEntryInBlock(int blockNum, char *name){
 	while(offset < BLOCK_SIZE){
 		struct ext2_dir_entry_2 *dirEntry = (struct ext2_dir_entry_2 *)(disk + (BLOCK_SIZE * blockNum) + offset);
 		char *entryName = dirEntry->name;
-		if(entryName == name){
+		//strcmp returns 0 when the two str are equal
+		if(strcmp(entryName, name) == 0){
 			return dirEntry;
 		}
 		//increment the offset by the size of the previous dirEntry
