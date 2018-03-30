@@ -22,7 +22,7 @@ void walkPath(char *path){
 	struct ext2_inode *currInode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE) + (INODE_SIZE);
 
 	//Iterate through each directory/file in the path
-	const char delim[1] = "/";
+	const char delim[2] = "/";
 	char *curr;
 	curr = strtok(path, delim);
 	while(curr != NULL) {
