@@ -8,12 +8,13 @@
 #include "ext2.h"
 #include <string.h>
 #include <errno.h>
+#include "helper_functions.h"
 
-#define BLOCK_SIZE 1024
+/*#define BLOCK_SIZE 1024
 #define ROOT_INODE_INDEX 1
 #define INODE_TABLE_BLOCK 5
 #define INODE_SIZE 128
-#define NUMBER_OF_SINGLE_POINTERS 12
+#define NUMBER_OF_SINGLE_POINTERS 12*/
 
 unsigned char *disk;
 char *absolutePath;
@@ -23,7 +24,9 @@ struct ext2_dir_entry_2 *findDirEntryInBlock(int blockNum, char *name){
 	//iterate over all the directory entries in the block
 	while(offset < BLOCK_SIZE){
 		struct ext2_dir_entry_2 *dirEntry = (struct ext2_dir_entry_2 *)(disk + (BLOCK_SIZE * blockNum) + offset);
-		char *entryName = dirEntry->name;
+		char entryName[dirEntry->name_len + 1];
+		memcpy(entryName, &dirEntry->name, dirEntry->name_len);
+		entryName[dirEntry->name_len] = '\0';
 		//strcmp returns 0 when the two str are equal
 		if(strcmp(entryName, name) == 0){
 			return dirEntry;
@@ -48,7 +51,7 @@ struct ext2_inode *findInodeInDir(struct ext2_inode *inode, char *path){
 				if(dirEntry != NULL){
 					//in this case, we found the directory entry, now we find and return the inode associated with that directory entry
 					unsigned int inodeIndex = (dirEntry->inode) - 1;
-					struct ext2_inode *inode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE) + (INODE_SIZE * inodeIndex);
+					struct ext2_inode *inode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE + INODE_SIZE * inodeIndex);
 					return inode;
 				}
 			}	
@@ -58,18 +61,19 @@ struct ext2_inode *findInodeInDir(struct ext2_inode *inode, char *path){
 }
 
 struct ext2_inode * walkPath(char *path){
+	char tempPath[strlen(path)];
 	//get the root inode
-	struct ext2_inode *currInode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE) + (INODE_SIZE);
-
+	struct ext2_inode *currInode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE + INODE_SIZE);
 	//Iterate through each directory/file in the path
-	const char delim[1] = "/";
+	const char delim[2] = "/";
 	char *curr;
 	curr = strtok(path, delim);
 	while(curr != NULL) {
+		printf("%s\n", curr);
 		currInode = findInodeInDir(currInode, curr);
 		if (currInode == NULL){
 			//There was no file/directory with the specified name
-			//return ENOENT;
+			return NULL;
 		}
 		curr = strtok(NULL, delim);
 	}
@@ -86,10 +90,26 @@ int main(int argc, char **argv){
 	absolutePath = argv[2];
 	struct ext2_inode *inode = walkPath(absolutePath);	
 	if(inode == NULL){
-		printf("NULL");
+		//error case
+		printf("NULL\n");
+		return ENOENT;
 	}
 	else {
-		printf("Not NULL");
+		printf("Not NULL\n");
 	}
-	//printf("%d", inode->i_size);
+	
+	//if the final inode is a file or link, just print name of the inode	
+	if(((inode->i_mode & EXT2_S_IFREG) == EXT2_S_IFREG) || ((inode->i_mode & EXT2_S_IFLNK) == EXT2_S_IFLNK)) {
+		int indexOfLastSeperator = last_sep_index(absolutePath);
+		char *lastFile = last_file_name(indexOfLastSeperator, absolutePath);
+		printf("%s\n", lastFile);
+		/*int len = strlen(absolutePath);
+		char lastChar = absolutePath[len - 1];
+		if (lastChar == '/'){
+			char *newPath[len];
+			strncopy(newPath, absolutePath, len - 1)
+			newPath[len - 1] = '\0';
+		}*/
+	}
+	
 }

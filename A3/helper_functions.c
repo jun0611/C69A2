@@ -5,9 +5,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <string.h>
 #include "ext2.h"
-
-unsigned char *disk;
+#include "helper_functions.h"
 
 /*
 * returns the index of '\' before the last file name in path
@@ -48,7 +48,8 @@ char *parent_path(int index, char *path) {
         return separator;
     }
     char *parent = malloc(sizeof(char) * (index + 1));
-    for(int i = 0; i < (index + 1); i++){
+	int i;
+    for(i = 0; i < (index + 1); i++){
         parent[i] = path[i];
     }
     //must add terminating char at the end of string
@@ -75,11 +76,30 @@ char *last_file_name(int index, char *path) {
     int file_name_len = path_len - index;
     char *file_name = malloc(file_name_len * sizeof(char));
     int count = 0;
-    for(int i = index + 1; i < path_len; i++) {
+	int i;
+    for(i = index + 1; i < path_len; i++) {
         file_name[count] = path[i];
         count ++;
     }
     //add terminating char at the end
     file_name[file_name_len] = '\0';
     return strtok(file_name, separator);
+}
+
+void freeInodes() {
+	unsigned char *inodeBitmap = malloc(INODE_BITMAP_BYTES);
+	inodeBitmap = (unsigned char *)(disk + BLOCK_SIZE * INODE_BITMAP_BLOCK);
+
+	int count = 0;
+	for (i = 0; i < INODE_BITMAP_BYTES; i++) {
+		int j;
+		unsigned char b = inodeBitmap[i];
+    	for(j = 0; j < 8; j++){
+			if((!(b >> j & 1)) && (count >= 10)){
+				//This means that the inode with number "count" is free
+				//struct ext2_inode *inode = (struct ext2_inode *)(disk + BLOCK_SIZE * INODE_TABLE_BLOCK + (INODE_SIZE * count));
+			}
+			count++;
+    	}	
+	}
 }
