@@ -6,7 +6,6 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <string.h>
-#include "ext2.h"
 #include "helper_functions.h"
 
 /*
@@ -86,20 +85,63 @@ char *last_file_name(int index, char *path) {
     return strtok(file_name, separator);
 }
 
-void freeInodes() {
-	unsigned char *inodeBitmap = malloc(INODE_BITMAP_BYTES);
-	inodeBitmap = (unsigned char *)(disk + BLOCK_SIZE * INODE_BITMAP_BLOCK);
-
-	int count = 0;
-	for (i = 0; i < INODE_BITMAP_BYTES; i++) {
-		int j;
-		unsigned char b = inodeBitmap[i];
-    	for(j = 0; j < 8; j++){
-			if((!(b >> j & 1)) && (count >= 10)){
-				//This means that the inode with number "count" is free
-				//struct ext2_inode *inode = (struct ext2_inode *)(disk + BLOCK_SIZE * INODE_TABLE_BLOCK + (INODE_SIZE * count));
-			}
-			count++;
-    	}	
+struct ext2_dir_entry_2 *findDirEntryInBlock(unsigned char *disk, int blockNum, char *name){
+	int offset = 0;
+	//iterate over all the directory entries in the block
+	while(offset < BLOCK_SIZE){
+		struct ext2_dir_entry_2 *dirEntry = (struct ext2_dir_entry_2 *)(disk + (BLOCK_SIZE * blockNum) + offset);
+		char entryName[dirEntry->name_len + 1];
+		memcpy(entryName, &dirEntry->name, dirEntry->name_len);
+		entryName[dirEntry->name_len] = '\0';
+		//strcmp returns 0 when the two str are equal
+		if(strcmp(entryName, name) == 0){
+			return dirEntry;
+		}
+		//increment the offset by the size of the previous dirEntry
+		offset = offset + dirEntry->rec_len;
 	}
+	return NULL;
+}
+
+struct ext2_inode *findInodeInDir(unsigned char *disk, struct ext2_inode *inode, char *path){
+	//ensure inode is a directory
+	if ((inode->i_mode & EXT2_S_IFDIR) == EXT2_S_IFDIR){
+		int i;
+		struct ext2_dir_entry_2 *dirEntry;
+		//iterate over all the direct block pointers
+		for(i = 0; i < NUMBER_OF_SINGLE_POINTERS; i++) {
+			//check if the current block is valid
+			if(inode->i_block[i]){
+				//search the block for a dir entry with the specified path name
+				dirEntry = findDirEntryInBlock(disk, inode->i_block[i], path);
+				if(dirEntry != NULL){
+					//in this case, we found the directory entry, now we find and return the inode associated with that directory entry
+					unsigned int inodeIndex = (dirEntry->inode) - 1;
+					struct ext2_inode *inode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE + INODE_SIZE * inodeIndex);
+					return inode;
+				}
+			}	
+		}
+	}
+	return NULL;
+}
+
+struct ext2_inode * walkPath(unsigned char *disk, char *path){
+	char tempPath[strlen(path) + 1];
+	strcpy(tempPath, path);
+	//get the root inode
+	struct ext2_inode *currInode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE + INODE_SIZE);
+	//Iterate through each directory/file in the path
+	const char delim[2] = "/";
+	char *curr;
+	curr = strtok(tempPath, delim);
+	while(curr != NULL) {
+		currInode = findInodeInDir(disk, currInode, curr);
+		if (currInode == NULL){
+			//There was no file/directory with the specified name
+			return NULL;
+		}
+		curr = strtok(NULL, delim);
+	}
+	return currInode;
 }
