@@ -5,9 +5,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include "ext2.h"
-
-unsigned char *disk;
+#include <string.h>
+#include "helper_functions.h"
 
 /*
 * returns the index of '\' before the last file name in path
@@ -48,7 +47,8 @@ char *parent_path(int index, char *path) {
         return separator;
     }
     char *parent = malloc(sizeof(char) * (index + 1));
-    for(int i = 0; i < (index + 1); i++){
+	int i;
+    for(i = 0; i < (index + 1); i++){
         parent[i] = path[i];
     }
     //must add terminating char at the end of string
@@ -75,7 +75,8 @@ char *last_file_name(int index, char *path) {
     int file_name_len = path_len - index;
     char *file_name = malloc(file_name_len * sizeof(char));
     int count = 0;
-    for(int i = index + 1; i < path_len; i++) {
+	int i;
+    for(i = index + 1; i < path_len; i++) {
         file_name[count] = path[i];
         count ++;
     }
@@ -117,3 +118,65 @@ int find_free_block(void *inode_bitmap) {
     }
     return -1;
 }
+
+struct ext2_dir_entry_2 *findDirEntryInBlock(unsigned char *disk, int blockNum, char *name){
+	int offset = 0;
+	//iterate over all the directory entries in the block
+	while(offset < BLOCK_SIZE){
+		struct ext2_dir_entry_2 *dirEntry = (struct ext2_dir_entry_2 *)(disk + (BLOCK_SIZE * blockNum) + offset);
+		char entryName[dirEntry->name_len + 1];
+		memcpy(entryName, &dirEntry->name, dirEntry->name_len);
+		entryName[dirEntry->name_len] = '\0';
+		//strcmp returns 0 when the two str are equal
+		if(strcmp(entryName, name) == 0){
+			return dirEntry;
+		}
+		//increment the offset by the size of the previous dirEntry
+		offset = offset + dirEntry->rec_len;
+	}
+	return NULL;
+}
+
+struct ext2_inode *findInodeInDir(unsigned char *disk, struct ext2_inode *inode, char *path){
+	//ensure inode is a directory
+	if ((inode->i_mode & EXT2_S_IFDIR) == EXT2_S_IFDIR){
+		int i;
+		struct ext2_dir_entry_2 *dirEntry;
+		//iterate over all the direct block pointers
+		for(i = 0; i < NUMBER_OF_SINGLE_POINTERS; i++) {
+			//check if the current block is valid
+			if(inode->i_block[i]){
+				//search the block for a dir entry with the specified path name
+				dirEntry = findDirEntryInBlock(disk, inode->i_block[i], path);
+				if(dirEntry != NULL){
+					//in this case, we found the directory entry, now we find and return the inode associated with that directory entry
+					unsigned int inodeIndex = (dirEntry->inode) - 1;
+					struct ext2_inode *inode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE + INODE_SIZE * inodeIndex);
+					return inode;
+				}
+			}	
+		}
+	}
+	return NULL;
+}
+
+struct ext2_inode * walkPath(unsigned char *disk, char *path){
+	char tempPath[strlen(path) + 1];
+	strcpy(tempPath, path);
+	//get the root inode
+	struct ext2_inode *currInode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE + INODE_SIZE);
+	//Iterate through each directory/file in the path
+	const char delim[2] = "/";
+	char *curr;
+	curr = strtok(tempPath, delim);
+	while(curr != NULL) {
+		currInode = findInodeInDir(disk, currInode, curr);
+		if (currInode == NULL){
+			//There was no file/directory with the specified name
+			return NULL;
+		}
+		curr = strtok(NULL, delim);
+	}
+	return currInode;
+}
+
