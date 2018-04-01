@@ -83,3 +83,37 @@ char *last_file_name(int index, char *path) {
     file_name[file_name_len] = '\0';
     return strtok(file_name, separator);
 }
+
+/*
+* find free block using block bitmap
+*/
+int find_free_block(void *block_bitmap) {
+    for (i = 0; i < BLOCK_BITMAP_BYTES; i++) {
+        int j;
+        unsigned int b = block_bitmap[i];
+        for(j = 0; j < 8; j++) {
+            if(!(b >> j & 1)) {
+                //i byte, j bits is the free block
+                return (i * 8 + j + 1)
+            }
+        }
+    }
+    return -1;
+}
+
+/*
+* find free inode using block bitmap
+*/
+int find_free_block(void *inode_bitmap) {
+    for (i = 0; i < INODE_BITMAP_BYTES; i++) {
+        int j;
+        unsigned int b = inode_bitmap[i];
+        for(j = 0; j < 8; j++) {
+            if(!(b >> j & 1)) {
+                //i byte, j bits is the free inode
+                return (i * 8 + j + 1)
+            }
+        }
+    }
+    return -1;
+}
