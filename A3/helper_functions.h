@@ -28,4 +28,6 @@ struct ext2_inode *findInodeInDir(unsigned char *disk, struct ext2_inode *inode,
 
 struct ext2_inode * walkPath(unsigned char *disk, char *path);
 
+int mod_round(int x);
+
 #endif

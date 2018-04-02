@@ -180,3 +180,13 @@ struct ext2_inode * walkPath(unsigned char *disk, char *path){
 	return currInode;
 }
 
+/*
+* input: integer x
+* output: x rounded up so it is divisible by 4
+*/
+int mod_round(int x) {
+    int temp = 4 - (x % 4);
+    int res = x + temp;
+    return res;
+}
+
