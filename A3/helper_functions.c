@@ -1,4 +1,4 @@
-#include <stdio.h>
+ #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -88,14 +88,13 @@ char *last_file_name(int index, char *path) {
 /*
 * find free block using block bitmap
 */
-int find_free_block(void *block_bitmap) {
-    for (i = 0; i < BLOCK_BITMAP_BYTES; i++) {
-        int j;
-        unsigned int b = block_bitmap[i];
-        for(j = 0; j < 8; j++) {
+int find_free_block(unsigned char *block_bitmap) {
+    for (int i = 0; i < BLOCK_BITMAP_BYTES; i++) {
+        unsigned char b = block_bitmap[i];
+        for(int j = 1; j < 8; j++) {
             if(!(b >> j & 1)) {
                 //i byte, j bits is the free block
-                return (i * 8 + j + 1)
+                return (i * 8 + j + 1);
             }
         }
     }
@@ -105,18 +104,32 @@ int find_free_block(void *block_bitmap) {
 /*
 * find free inode using block bitmap
 */
-int find_free_block(void *inode_bitmap) {
-    for (i = 0; i < INODE_BITMAP_BYTES; i++) {
-        int j;
-        unsigned int b = inode_bitmap[i];
-        for(j = 0; j < 8; j++) {
+int find_free_inode(unsigned char *inode_bitmap) {
+    for (int i = 0; i < INODE_BITMAP_BYTES; i++) {
+        unsigned char b = inode_bitmap[i];
+        for(int j = 1; j < 8; j++) {
             if(!(b >> j & 1)) {
                 //i byte, j bits is the free inode
-                return (i * 8 + j + 1)
+                return (i * 8 + j + 1);
             }
         }
     }
     return -1;
+}
+
+/*
+* set free block given free block number (from find_free_block/inode)
+*/
+void set_bitmap(unsigned char *bitmap, int block_num) {
+
+    int j = (block_num - 1) % 8;
+    int i = (block_num - 1 - j) / 8;
+    unsigned char b = bitmap[i];
+    unsigned char temp = 1;
+    for(int count = 0; count < j; count ++) {
+        temp = temp << 1; 
+    }
+    bitmap[i] = b | temp;
 }
 
 struct ext2_dir_entry_2 *findDirEntryInBlock(unsigned char *disk, int blockNum, char *name){
