@@ -53,7 +53,7 @@ int main(int argc, char **argv){
 		fprintf(stderr, "Invalid image file\n");
         exit(1);
 	}
-	disk = mmap(NULL, 128 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	disk = mmap(NULL, INODE_SIZE * BLOCK_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 			
 	if(flag){
 		absolutePath = argv[THIRD_ARGUMENT];	
@@ -62,13 +62,15 @@ int main(int argc, char **argv){
 		absolutePath = argv[SECOND_ARGUMENT];
 	}
 
-	struct ext2_inode *inode = walkPath(disk, absolutePath);	
-	if(inode == NULL){
+	//struct ext2_inode *inode = walkPath(disk, absolutePath);
+	unsigned int inodeNumber = walkPath(disk, absolutePath);
+	
+	if(inodeNumber == 0){
 		//error case
 		printf("No such file or directory\n");
 		return ENOENT;
 	}
-	
+	struct ext2_inode *inode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE + INODE_SIZE * (inodeNumber - 1));
 	//if the final inode is a file or link, just print name of the last element in the path	
 	if(((inode->i_mode & EXT2_S_IFREG) == EXT2_S_IFREG) || ((inode->i_mode & EXT2_S_IFLNK) == EXT2_S_IFLNK)) {
 		int indexOfLastSeperator = last_sep_index(absolutePath);

@@ -15,6 +15,7 @@
 #define FIRST_ARGUMENT 1
 #define SECOND_ARGUMENT 2
 #define THIRD_ARGUMENT 3
+#define BLOCK_BITMAP_BYTES 16
 
 int last_sep_index (char *path);
 
@@ -24,9 +25,9 @@ char *last_file_name(int index, char *path);
 
 struct ext2_dir_entry_2 *findDirEntryInBlock(unsigned char *disk, int blockNum, char *name);
 
-struct ext2_inode *findInodeInDir(unsigned char *disk, struct ext2_inode *inode, char *path);
+unsigned int findInodeInDir(unsigned char *disk, struct ext2_inode *inode, char *path);
 
-struct ext2_inode * walkPath(unsigned char *disk, char *path);
+unsigned int walkPath(unsigned char *disk, char *path);
 
 int mod_round(int x);
 
