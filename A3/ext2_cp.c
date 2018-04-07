@@ -5,15 +5,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include <time.h>
 #include "ext2.h"
-
 
 unsigned char *disk;
 
-int find_max_iblock(){
 
-}
 int main(int argc, char **argv) {
     // Checking for right amount of given input
     if(argc != 4) {
@@ -92,63 +88,44 @@ int main(int argc, char **argv) {
         // Overwrite the content of the file on the Disk
         // Getting to the found_inode on the Inode Table
         struct ext2_inode *target_inode = (struct ext2_inode *)(disk + (BLOCK_SIZE *inode_table_block) + found_inode);
+        target_inode -> i_size = INODE_SIZE;
         // Destination Locaton File is a Directory
         int byte_read = 0;
-        char buf[EXT2_BLOCK_SIZE];
+        char buf[BLOCK_SIZE];
 
         // Opening Source File to read
         int iblock_ptr_idx = 0;
-        while((iblock_ptr_idx < 12) && (byte_got = fread(buf, 1, EXT2_BLOCK_SIZE, fp)) > 0){
-            void *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
-            int free_block = find_free_block(block_bitmap);
-            new_inode -> iblock[iblock_ptr_idx] = free_block;
-            char *block = disk + (free_block * EXT2_BLOCK_SIZE);
+        while((iblock_ptr_idx < 12) && (byte_got = fread(buf, 1, BLOCK_SIZE, fp)) > 0){
+            unsigned int found_block;
+            found_block = target_inode -> iblock[iblock_ptr_idx];
+            char *block = disk + (free_block * (BLOCK_SIZE*inode_table_block) + found_block);
             memcpy(block, buf, byte_got);
-            new_inode -> i_size += byte_got;
+            target_inode -> i_size += byte_got;
             iblock_ptr_idx++;
         }
+        int max_indirect_ptr = BLOCK_SIZE/(2<<sb_log_block_size);
         // Big File, require indirect allocation
-        if((byte_got = fread(buf, 1, EXT2_BLOCK_SIZE, fp)) > 0){
-            do{
-                int indirect_iblock_ptr_idx = 0;
-                *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
-                int free_indirect_block = find_free_block(block_bitmap);
-                new_inode -> iblock[iblock_ptr_idx][indirect_iblock_ptr_idx] = free_indirect_block;
-                char *block = disk + (free_indirect_block * EXT2_BLOCK_SIZE);
-                indirect_iblock_ptr_idx ++;
-                }while((byte_got = fread(buf, 1, EXT2_BLOCK_SIZE, read_source_file) > 0) && (/*maximum pointer for 2 indirect pointer*/)); //!!!
+        if((byte_got = fread(buf, 1, BLOCK_SIZE, fp)) > 0){
+            int indirect_iblock_num = 0;
+            do{ 
+                free_indirect_block = target_inode -> 
+                char *block = disk + (free_indirect_block * BLOCK_SIZE);
+                memcpy(block, buf, byte_got);
+                target_inode -> i_size += byte_got;
+                }while((byte_got = fread(buf, 1, BLOCK_SIZE, fp) > 0) && (indirect_iblock_num < max_indirect_ptr)); 
             }
-        else{
-            // Signalling there is no more blocks of information after this iblock
-            if(iblock_ptr_idx < 11){
-                new_inode -> iblock[iblock_ptr_idx] = 0;
-                }
-            else{
-                // The file does not need single indirect block allocation
-                new_inode -> iblock[12][0] = 0;
-                }
-            // Finish copying a small file
-            fclose(fp);
-            return 0;
-        }
-    
-        // The file required single indirect block allocation
-        if(indirect_iblock_ptr_idx < 11){
-            new_inode -> iblock[12][indirect_iblock_ptr_idx] = 0;
-        }
-        else{
-            new_inode -> iblock[13][0][0] = 0;
-        }
-    }
-    
-    // Creating new file on the Disk
-    
-    // Name len must not exceed EXT2_NAME_LEN
-    if(source_name_len > EXT2_NAME_LEN){
-    fprintf(stderr, "Length of the Source File Name exceed given length %s\n", parent_destination_file);
-    exit(1);
+        fclose(fp);
+        return 0;
     }
 
+    // File was not found on the Disk
+    // Name len must not exceed EXT2_NAME_LEN
+    if(source_name_len > EXT2_NAME_LEN){
+        fprintf(stderr, "Length of the Source File Name exceed given length %s\n", parent_destination_file);
+        exit(1);
+    }
+
+    // Creating new file on the Disk
     // Finding free blocks
     unsigned int blocks_bitmap_block = block_group->bg_block_bitmap;
     void *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
@@ -168,61 +145,95 @@ int main(int argc, char **argv) {
     sb -> s_inodes_count += 1;
     sb -> s_blocks_count += 1;
 
-    // Creating New Directory for Source File
-    struct ext2_dir_entry_2 *new_dir_entry = (struct ext2_dir_entry_2 *)(disk + (BLOCK_SIZE * (new_inode -> i_block[0])));
-    new_dir_entry -> inode = free_inode_num;
-    new_dir_entry -> rec_len = 12;
-    new_dir_entry -> name_len = source_name_len;
-    new_dir_entry -> file_type = EXT2_FT_REG_FILE;
-    strcpy(new_dir_entry->name, source_path);
+    // Add the new Directory to the Destination Directory
+    int block_count = 0;
+    while((parent_destination_inode -> i_block[block_count + 1]) && block_count != 15) {
+        block_count ++;
+    }
+    // find end space in the block
+    int total_rec_len = 0
+    while(total_rec_len < BLOCK_SIZE) {
+        struct ext2_dir_entry_2 *dir_entry = (struct ext2_dir_entry_2 *)(disk +
+            (BLOCK_SIZE * (parent_destination_inode -> i_block[block_count])) + total_rec_len);
+        int entry_rec_len = dir_entry -> rec_len;
+        // this is the last dir entry
+        if((total_rec_len + entry_rec_len) == BLOCK_SIZE) {
+            int entry_size = (dir_entry -> name_len) + 8;
+            // entry_size most be divisible by 4
+            if((entry_size % 4) != 0) {
+                entry_size = mod_round(entry_size);
+            }
+            int available_space = entry_rec_len - entry_size;
+            int new_entry_size = strlen(file_name) + 8;
+            if((new_entry_size % 4) != 0) {
+                new_entry_size = mod_round(new_entry_size);
+                }
+            // create dir entry for new dir
+            if(available_space < new_entry_size) {
+                // not enough space
+                if(block_count == 12) {
+                    printf("Not enough space");
+                    exit(1);
+                } 
+                else {
+                    //use the next block
+                    struct ext2_dir_entry_2 *new_entry = (struct ext2_dir_entry_2 *)(disk +
+                   (BLOCK_SIZE * (parent_destination_inode -> i_block[block_count + 1])));    
+                    new_entry -> inode = free_inode_num;
+                    new_entry -> rec_len = 12;
+                    new_entry -> name_len = source_name_len;
+                    new_entry -> file_type = EXT2_FT_REG_FILE;
+                    strcpy(new_dir_entry->name, source_path);
+                    break;
+                }
+                } 
+                else {
+                    struct ext2_dir_entry_2 *new_entry = (struct ext2_dir_entry_2 *)(disk +
+                   (BLOCK_SIZE * (parent_destination_inode -> i_block[block_count]) + total_rec_len + entry_size));
+                    new_entry -> inode = free_inode_num;
+                    new_entry -> rec_len = 12;
+                    new_entry -> name_len = source_name_len;
+                    new_entry -> file_type = EXT2_FT_REG_FILE;
+                    strcpy(new_dir_entry->name, source_path);
+                    // update previous entry rec_len
+                    dir_entry -> rec_len = total_rec_len + entry_size;
+                    break;
+            }
+        }
+       total_rec_len = total_rec_len + (dir_entry -> rec_len);
+    } 
 
-    // Copying Source File over to newly created Inode || NEED TO ADD
+    set_bitmap(inode_bitmap, free_inode_num);
+    set_bitmap(block_bitmap, free_block_num);
+    // Copying Source File over to newly created Inode
     int byte_read = 0;
-    char buf[EXT2_BLOCK_SIZE];
+    char buf[BLOCK_SIZE];
 
     // Opening Source File to read
     int iblock_ptr_idx = 0;
-    while((iblock_ptr_idx < 12) && (byte_got = fread(buf, 1, EXT2_BLOCK_SIZE, fp)) > 0){
+    while((iblock_ptr_idx < 12) && (byte_got = fread(buf, 1, BLOCK_SIZE, fp)) > 0){
         void *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
         int free_block = find_free_block(block_bitmap);
         new_inode -> iblock[iblock_ptr_idx] = free_block;
-        char *block = disk + (free_block * EXT2_BLOCK_SIZE);
+        char *block = disk + (free_block * BLOCK_SIZE);
         memcpy(block, buf, byte_got);
         new_inode -> i_size += byte_got;
         iblock_ptr_idx++;
     }
     // Big File, require indirect allocation
-    if((byte_got = fread(buf, 1, EXT2_BLOCK_SIZE, fp)) > 0){
+    int max_indirect_ptr = BLOCK_SIZE/(2<<sb_log_block_size);
+    if((byte_got = fread(buf, 1, BLOCK_SIZE, fp)) > 0){
+        int indirect_iblock_num= 0;
         do{
-            int indirect_iblock_ptr_idx = 0;
             *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
             int free_indirect_block = find_free_block(block_bitmap);
             new_inode -> iblock[iblock_ptr_idx][indirect_iblock_ptr_idx] = free_indirect_block;
-            char *block = disk + (free_indirect_block * EXT2_BLOCK_SIZE);
+            char *block = disk + (free_indirect_block * BLOCK_SIZE);
             indirect_iblock_ptr_idx ++;
-            }while((byte_got = fread(buf, 1, EXT2_BLOCK_SIZE, read_source_file) > 0) && (/*maximum pointer for 2 indirect pointer*/)); //!!!
+            memcpy(block, buf, byte_got);
+            new_inode -> i_size += byte_got;
+            }while((byte_got = fread(buf, 1, BLOCK_SIZE, fp) > 0) && (indirect_iblock_num < NUM_INDIRECT_POINTER)); 
         }
-    else{
-        // Signalling there is no more blocks of information after this iblock
-        if(iblock_ptr_idx < 11){
-            new_inode -> iblock[iblock_ptr_idx] = 0;
-            }
-        else{
-            // The file does not need single indirect block allocation
-            new_inode -> iblock[12][0] = 0;
-            }
-        // Finish copying a small file
-        fclose(fp);
-        return 0;
-        }
-    
-    // The file required single indirect block allocation
-    if(indirect_iblock_ptr_idx < 11){
-        new_inode -> iblock[12][indirect_iblock_ptr_idx] = 0;
-    }
-    else{
-        new_inode -> iblock[13][0][0] = 0;
-    }
     fclose(fp);
     return 0;
 }
