@@ -9,6 +9,7 @@
 #define INODE_SIZE 128
 #define NUMBER_OF_SINGLE_POINTERS 12
 #define INODE_BITMAP_BLOCK 4
+#define BLOCK_BITMAP_BLOCK 3
 #define INODE_BITMAP_BYTES 4
 #define MAX_ARGUMENTS 4
 #define MIN_ARGUMENTS 3
@@ -16,6 +17,7 @@
 #define SECOND_ARGUMENT 2
 #define THIRD_ARGUMENT 3
 #define BLOCK_BITMAP_BYTES 16
+#define NUMBER_OF_INDIRECT_POINTERS 256
 
 int last_sep_index (char *path);
 

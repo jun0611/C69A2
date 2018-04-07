@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
         sb -> s_inodes_count += 1;
         sb -> s_blocks_count += 1;
         // update bit map
-        set_bitmap(inode_bitmap, free_inode_num);
-        set_bitmap(block_bitmap, free_block_num);
+        set_bitmap(inode_bitmap, free_inode_num, 1);
+        set_bitmap(block_bitmap, free_block_num, 1);
     return 0;
 }
