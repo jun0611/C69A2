@@ -196,7 +196,7 @@ int main(int argc, char **argv) {
                     new_entry -> rec_len = 12;
                     new_entry -> name_len = source_name_len;
                     new_entry -> file_type = EXT2_FT_REG_FILE;
-                    strcpy(new_dir_entry->name, source_path);
+                    strcpy(new_entry->name, source_path);
                     // update previous entry rec_len
                     dir_entry -> rec_len = total_rec_len + entry_size;
                     break;
@@ -226,6 +226,7 @@ int main(int argc, char **argv) {
     if((byte_got = fread(buf, 1, BLOCK_SIZE, fp)) > 0){
         int indirect_iblock_ptr= 0;
         void *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
+        int free_indirect_block = find_free_block(block_bitmap);
         new_inode -> i_block[12] = free_indirect_block;
         int *singleIndirectBlock = (int *) (disk + BLOCK_SIZE * free_indirect_block);
         set_bitmap(block_bitmap, free_indirect_block, 1);
