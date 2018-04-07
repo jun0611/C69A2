@@ -60,10 +60,6 @@ void removeDirectoryEntry(char *entryName){
 	int lastSlash = last_sep_index(absolutePath);
 	char *parentDir = parent_path(lastSlash, absolutePath);
 
-	//get name of parent directory
-	lastSlash = last_sep_index(absolutePath);
-	char *parentName = last_file_name(lastSlash, parentDir);
-
 	unsigned int inodeNum = walkPath(disk, parentDir);
 	struct ext2_inode *inode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE + INODE_SIZE * (inodeNum - 1));
 	iterateDirectoryEntries(inode, entryName);
