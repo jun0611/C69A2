@@ -32,18 +32,18 @@ int main(int argc, char **argv) {
     
     //find inode of parent if it exists
     unsigned int check_path = walkPath(absolutePath);
-    if(check_path != ENOENT) {
+    if(!(check_path)) {
         exit(EEXIST);
     }
     unsigned int parent_inode_index = walkPath(parent_path);
-    if(parent_inode == ENOENT) {
+    if(!(parent_inode_index)) {
         exit(ENOENT);
     }
     unsigned int inode_table_block = gd -> bg_inode_table;
     struct ext2_inode *parent_inode = (struct ext2_inode *)(disk + (BLOCK_SIZE *inode_table_block)
         + parent_inode_index);
     //make sure inode is a directory
-    if ((inode->i_mode & EXT2_S_IFDIR) == EXT2_S_IFDIR) {
+    if ((parent_inode->i_mode & EXT2_S_IFDIR) == EXT2_S_IFDIR) {
         //find free block
         unsigned int blocks_bitmap_block = gd->bg_block_bitmap;
         void *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
@@ -76,10 +76,7 @@ int main(int argc, char **argv) {
         parent_dir_entry -> file_type = EXT2_FT_DIR;
         strcpy(new_dir_entry -> name, "..");
         //find the end of parent directory block
-        int block_count = 0;
-        while((parent_inode -> i_block[block_count + 1]) && block_count != 15) {
-            block_count ++;
-        }
+        int block_count = last_block_in_dir(parent_inode);
         // find end space in the block
         int total_rec_len = 0
         while(total_rec_len < BLOCK_SIZE) {
@@ -107,7 +104,7 @@ int main(int argc, char **argv) {
                     } else {
                         //use the next block
                         struct ext2_dir_entry_2 *new_entry = (struct ext2_dir_entry_2 *)(disk +
-                   (BLOCK_SIZE * (parent_inode -> i_block[block_count + 1])));
+                            (BLOCK_SIZE * (parent_inode -> i_block[block_count + 1])));
                         new_entry -> inode = free_inode_num;
                         new_entry -> rec_len = BLOCK_SIZE;
                         new_entry -> name_len = strlen(file_name);
@@ -117,7 +114,7 @@ int main(int argc, char **argv) {
                     }
                 } else {
                         struct ext2_dir_entry_2 *new_entry = (struct ext2_dir_entry_2 *)(disk +
-                   (BLOCK_SIZE * (parent_inode -> i_block[block_count]) + total_rec_len + entry_size));
+                             (BLOCK_SIZE * (parent_inode -> i_block[block_count]) + total_rec_len + entry_size));
                         new_entry -> inode = free_inode_num;
                         new_entry -> rec_len = available_space;
                         new_entry -> name_len = strlen(file_name);
