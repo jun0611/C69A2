@@ -79,7 +79,8 @@ int main(int argc, char **argv) {
             unsigned int first_data_block = sb -> s_first_data_block;
             new_inode -> i_block[0] = first_data_block + free_block_num;
             //save path to file
-            memcpy((int)(new_inode -> i_block[0]), file_path, strlen(file_path));
+            int block_num = new_inode -> i_block[0];
+            memcpy(disk + BLOCK_SIZE * block_num, file_path, strlen(file_path));
                 // update super block
             sb -> s_inodes_count += 1;
             sb -> s_blocks_count += 1;

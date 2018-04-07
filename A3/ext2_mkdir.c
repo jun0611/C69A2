@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
         cur_dir_entry -> rec_len = 12;
         cur_dir_entry -> name_len = 1;
         cur_dir_entry -> file_type = EXT2_FT_DIR;
-        strcpy(new_dir_entry -> name, ".");
+        strcpy(cur_dir_entry -> name, ".");
         //create directory entry for .. (parent)
         struct ext2_dir_entry_2 *parent_dir_entry = (struct ext2_dir_entry_2 *)(disk + (BLOCK_SIZE * 
             (new_inode -> i_block[0])) + (cur_dir_entry -> rec_len));
@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
         parent_dir_entry -> rec_len = BLOCK_SIZE - 12;
         parent_dir_entry -> name_len = 2;
         parent_dir_entry -> file_type = EXT2_FT_DIR;
-        strcpy(new_dir_entry -> name, "..");
+        strcpy(parent_dir_entry -> name, "..");
         //find the end of parent directory block
         int block_count = last_block_in_dir(parent_inode);
         // find end space in the block
@@ -136,5 +136,6 @@ int main(int argc, char **argv) {
         // update bit map
         set_bitmap(inode_bitmap, free_inode_num, 1);
         set_bitmap(block_bitmap, free_block_num, 1);
+    }
     return 0;
 }
