@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
         block_count ++;
     }
     // find end space in the block
-    int total_rec_len = 0
+    int total_rec_len = 0;
     while(total_rec_len < BLOCK_SIZE) {
         struct ext2_dir_entry_2 *dir_entry = (struct ext2_dir_entry_2 *)(disk +
             (BLOCK_SIZE * (parentInode -> i_block[block_count])) + total_rec_len);
@@ -205,31 +205,30 @@ int main(int argc, char **argv) {
        total_rec_len = total_rec_len + (dir_entry -> rec_len);
     } 
 
-    set_bitmap(inode_bitmap, free_inode_num);
-    set_bitmap(block_bitmap, free_block_num);
+    set_bitmap(inode_bitmap, free_inode_num, 1);
+    set_bitmap(block_bitmap, free_block_num, 1);
     // Copying Source File over to newly created Inode
-    int byte_read = 0;
+    int byte_got = 0;
     char buf[BLOCK_SIZE];
 
     // Opening Source File to read
     int iblock_ptr_idx = 0;
     while((iblock_ptr_idx < 12) && (byte_got = fread(buf, 1, BLOCK_SIZE, fp)) > 0){
-        void *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
+        *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
         int free_block = find_free_block(block_bitmap);
-        new_inode -> iblock[iblock_ptr_idx] = free_block;
-        char *block = disk + (free_block * BLOCK_SIZE);
-        memcpy(block, buf, byte_got);
+        new_inode -> i_block[iblock_ptr_idx] = free_block;
+        memcpy(disk + (free_block * BLOCK_SIZE), buf, byte_got);
         new_inode -> i_size += byte_got;
         iblock_ptr_idx++;
-        set_bitmap(block_bitmap, free_block_num);
+        set_bitmap(block_bitmap, free_block_num, 1);
     }
     // Big File, require indirect allocation
     if((byte_got = fread(buf, 1, BLOCK_SIZE, fp)) > 0){
         int indirect_iblock_ptr= 0;
-        (void*) *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
+        *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
         new_inode -> iblock[12] = free_indirect_block;
         int *singleIndirectBlock = (int *) (disk + BLOCK_SIZE * free_indirect_block);
-        set_bitmap(block_bitmap, free_indirect);
+        set_bitmap(block_bitmap, free_indirect, 1);
         do{ 
             *block_bitmap = (void *) (disk + blocks_bitmap_block * BLOCK_SIZE);
             int free_indirect_direct_block = find_free_block(block_bitmap);
