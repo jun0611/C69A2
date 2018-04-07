@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
     struct ext2_group_desc *gd =  (struct ext2_group_desc *)(disk + BLOCK_SIZE * 2);
     char *absolutePath = argv[2];
     int seperator_index = last_sep_index(absolutePath);
-    char *parent_path = parent_path(seperator_index, absolutePath);
+    char *par_path = parent_path(seperator_index, absolutePath);
     char *file_name = last_file_name(seperator_index, absolutePath);
     
     //find inode of parent if it exists
@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
     if(!(check_path)) {
         exit(EEXIST);
     }
-    unsigned int parent_inode_index = walkPath(disk, parent_path);
+    unsigned int parent_inode_index = walkPath(disk, par_path);
     if(!(parent_inode_index)) {
         exit(ENOENT);
     }
