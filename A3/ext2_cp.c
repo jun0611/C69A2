@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
                 entry_size = mod_round(entry_size);
             }
             int available_space = entry_rec_len - entry_size;
-            int new_entry_size = strlen(file_name) + 8;
+            int new_entry_size = strlen(source_file) + 8;
             if((new_entry_size % 4) != 0) {
                 new_entry_size = mod_round(new_entry_size);
                 }
@@ -185,7 +185,7 @@ int main(int argc, char **argv) {
                     new_entry -> rec_len = 12;
                     new_entry -> name_len = source_name_len;
                     new_entry -> file_type = EXT2_FT_REG_FILE;
-                    strcpy(new_dir_entry->name, source_path);
+                    strcpy(new_entry->name, source_path);
                     break;
                 }
                 } 
@@ -214,7 +214,7 @@ int main(int argc, char **argv) {
     // Opening Source File to read
     int iblock_ptr_idx = 0;
     while((iblock_ptr_idx < 12) && (byte_got = fread(buf, 1, BLOCK_SIZE, fp)) > 0){
-        *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
+        void *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
         int free_block = find_free_block(block_bitmap);
         new_inode -> i_block[iblock_ptr_idx] = free_block;
         memcpy(disk + (free_block * BLOCK_SIZE), buf, byte_got);
@@ -225,17 +225,17 @@ int main(int argc, char **argv) {
     // Big File, require indirect allocation
     if((byte_got = fread(buf, 1, BLOCK_SIZE, fp)) > 0){
         int indirect_iblock_ptr= 0;
-        *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
-        new_inode -> iblock[12] = free_indirect_block;
+        void *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
+        new_inode -> i_block[12] = free_indirect_block;
         int *singleIndirectBlock = (int *) (disk + BLOCK_SIZE * free_indirect_block);
-        set_bitmap(block_bitmap, free_indirect, 1);
+        set_bitmap(block_bitmap, free_indirect_block, 1);
         do{ 
-            *block_bitmap = (void *) (disk + blocks_bitmap_block * BLOCK_SIZE);
+            void *block_bitmap = (void *) (disk + blocks_bitmap_block * BLOCK_SIZE);
             int free_indirect_direct_block = find_free_block(block_bitmap);
             singleIndirectBlock[indirect_iblock_ptr] = free_indirect_direct_block;
             memcpy(free_indirect_direct_block, buf, byte_got);
             new_inode -> i_size += byte_got;
-            set_bitmap(block_bitmap, free_indirect_direct_block);
+            set_bitmap(block_bitmap, free_indirect_direct_block, 1);
             indirect_iblock_ptr++;
             }while((byte_got = fread(buf, 1, BLOCK_SIZE, fp) > 0) && (indirect_iblock_ptr < NUMBER_OF_INDIRECT_POINTERS)); 
         }
