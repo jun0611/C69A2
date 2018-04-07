@@ -111,7 +111,9 @@ int main(int argc, char **argv) {
             unsigned int indirect = inode->i_block[12];
             int *singleIndirectBlock = (int *)(disk + BLOCK_SIZE*indirect);
             do{ 
-                memcpy(singleIndirectBlock[indirect_iblock_ptr], buf, byte_got);
+                int block_num = singleIndirectBlock[indirect_iblock_ptr];
+                char *block = disk + (BLOCK_SIZE*block_num);
+                memcpy(block, buf, byte_got);
                 target_inode -> i_size += byte_got;
                 indirect_iblock_ptr++;
                 }while((byte_got = fread(buf, 1, BLOCK_SIZE, fp) > 0) && (indirect_iblock_ptr < NUMBER_OF_INDIRECT_POINTERS)); 
