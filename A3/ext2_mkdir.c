@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 #include "ext2.h"
 #include <errno.h>
+#include <string.h>
 
 #include "helper_functions.h"
 

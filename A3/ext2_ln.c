@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 #include "ext2.h"
 #include <errno.h>
+#include <string.h>
 
 #include "helper_functions.h"
 
@@ -62,6 +63,12 @@ int main(int argc, char **argv) {
         struct ext2_inode *parent_inode = (struct ext2_inode *)(disk + (BLOCK_SIZE *inode_table_block)
             + parent_inode_index);
         //for symlink create new inode
+        unsigned int blocks_bitmap_block = gd->bg_block_bitmap;
+        void *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
+        int free_block_num = find_free_block(block_bitmap);
+        unsigned int inodes_bitmap_block = gd->bg_inode_bitmap;
+        void *inode_bitmap = (void *)(disk + inodes_bitmap_block * BLOCK_SIZE);
+        int free_inode_num = find_free_inode(inode_bitmap);
         if(!(is_hard)) {
             //find free block
             unsigned int blocks_bitmap_block = gd->bg_block_bitmap;
