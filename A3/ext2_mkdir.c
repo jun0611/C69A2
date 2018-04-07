@@ -6,9 +6,12 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include "ext2.h"
+#include <errno.h>
+#include <string.h>
 
 #include "helper_functions.h"
 
+unsigned char *disk;
 
 int main(int argc, char **argv) {
 
@@ -27,15 +30,15 @@ int main(int argc, char **argv) {
     struct ext2_group_desc *gd =  (struct ext2_group_desc *)(disk + BLOCK_SIZE * 2);
     char *absolutePath = argv[2];
     int seperator_index = last_sep_index(absolutePath);
-    char *parent_path = parent_path(seperator_index, absolutePath);
+    char *par_path = parent_path(seperator_index, absolutePath);
     char *file_name = last_file_name(seperator_index, absolutePath);
     
     //find inode of parent if it exists
-    unsigned int check_path = walkPath(absolutePath);
+    unsigned int check_path = walkPath(disk, absolutePath);
     if(!(check_path)) {
         exit(EEXIST);
     }
-    unsigned int parent_inode_index = walkPath(parent_path);
+    unsigned int parent_inode_index = walkPath(disk, par_path);
     if(!(parent_inode_index)) {
         exit(ENOENT);
     }
@@ -66,7 +69,7 @@ int main(int argc, char **argv) {
         cur_dir_entry -> rec_len = 12;
         cur_dir_entry -> name_len = 1;
         cur_dir_entry -> file_type = EXT2_FT_DIR;
-        strcpy(new_dir_entry -> name, ".");
+        strcpy(cur_dir_entry -> name, ".");
         //create directory entry for .. (parent)
         struct ext2_dir_entry_2 *parent_dir_entry = (struct ext2_dir_entry_2 *)(disk + (BLOCK_SIZE * 
             (new_inode -> i_block[0])) + (cur_dir_entry -> rec_len));
@@ -74,11 +77,11 @@ int main(int argc, char **argv) {
         parent_dir_entry -> rec_len = BLOCK_SIZE - 12;
         parent_dir_entry -> name_len = 2;
         parent_dir_entry -> file_type = EXT2_FT_DIR;
-        strcpy(new_dir_entry -> name, "..");
+        strcpy(parent_dir_entry -> name, "..");
         //find the end of parent directory block
         int block_count = last_block_in_dir(parent_inode);
         // find end space in the block
-        int total_rec_len = 0
+        int total_rec_len = 0;
         while(total_rec_len < BLOCK_SIZE) {
             struct ext2_dir_entry_2 *dir_entry = (struct ext2_dir_entry_2 *)(disk +
                 (BLOCK_SIZE * (parent_inode -> i_block[block_count])) + total_rec_len);
@@ -133,5 +136,6 @@ int main(int argc, char **argv) {
         // update bit map
         set_bitmap(inode_bitmap, free_inode_num, 1);
         set_bitmap(block_bitmap, free_block_num, 1);
+    }
     return 0;
 }

@@ -6,9 +6,12 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include "ext2.h"
+#include <errno.h>
+#include <string.h>
 
 #include "helper_functions.h"
 
+unsigned char *disk;
 
 int main(int argc, char **argv) {
 
@@ -37,12 +40,12 @@ int main(int argc, char **argv) {
             file_path = argv[3];
             link_path = argv[4];
         }
-        unsigned int file_path_index = walkPath(file_path);
+        unsigned int file_path_index = walkPath(disk, file_path);
         //check if file exists
         if(!(file_path_index)) {
             exit(ENOENT);
         }
-        unsigned int link_path_index = walkPath(link_path);
+        unsigned int link_path_index = walkPath(disk, link_path);
         //check if link name already exist
         if(link_path_index != 0) {
             exit(EEXIST);
@@ -56,18 +59,17 @@ int main(int argc, char **argv) {
         int sep_index = last_sep_index(link_path);
         char *parent_of_link = parent_path(sep_index, link_path);
         char *link_name = last_file_name(sep_index, link_path);
-        unsigned int parent_inode_index = walkPath(parent_of_link);
+        unsigned int parent_inode_index = walkPath(disk, parent_of_link);
         struct ext2_inode *parent_inode = (struct ext2_inode *)(disk + (BLOCK_SIZE *inode_table_block)
             + parent_inode_index);
         //for symlink create new inode
+        unsigned int blocks_bitmap_block = gd->bg_block_bitmap;
+        void *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
+        unsigned int inodes_bitmap_block = gd->bg_inode_bitmap;
+        void *inode_bitmap = (void *)(disk + inodes_bitmap_block * BLOCK_SIZE);
+        int free_inode_num = find_free_inode(inode_bitmap);
         if(!(is_hard)) {
-            //find free block
-            unsigned int blocks_bitmap_block = gd->bg_block_bitmap;
-            void *block_bitmap = (void *)(disk + blocks_bitmap_block * BLOCK_SIZE);
             int free_block_num = find_free_block(block_bitmap);
-            unsigned int inodes_bitmap_block = gd->bg_inode_bitmap;
-            void *inode_bitmap = (void *)(disk + inodes_bitmap_block * BLOCK_SIZE);
-            int free_inode_num = find_free_inode(inode_bitmap);
             //create new inode
             struct ext2_inode *new_inode = (struct ext2_inode *)(disk + (BLOCK_SIZE * inode_table_block) + free_inode_num);
             new_inode -> i_mode = EXT2_S_IFLNK;
@@ -77,20 +79,21 @@ int main(int argc, char **argv) {
             unsigned int first_data_block = sb -> s_first_data_block;
             new_inode -> i_block[0] = first_data_block + free_block_num;
             //save path to file
-            memcpy(new_inode -> i_block[0], file_path, strlen(file_path));
+            int block_num = new_inode -> i_block[0];
+            memcpy(disk + BLOCK_SIZE * block_num, file_path, strlen(file_path));
                 // update super block
             sb -> s_inodes_count += 1;
             sb -> s_blocks_count += 1;
             // update bit map
-            set_bitmap(inode_bitmap, free_inode_num);
-            set_bitmap(block_bitmap, free_block_num);
+            set_bitmap(inode_bitmap, free_inode_num, 1);
+            set_bitmap(block_bitmap, free_block_num, 1);
         }
         //make sure inode is a directory
         if ((parent_inode->i_mode & EXT2_S_IFDIR) == EXT2_S_IFDIR) {
             //find the end of parent directory block
             int block_count = last_block_in_dir(parent_inode);
             // find end space in the block
-            int total_rec_len = 0
+            int total_rec_len = 0;
             while(total_rec_len < BLOCK_SIZE) {
                 struct ext2_dir_entry_2 *dir_entry = (struct ext2_dir_entry_2 *)(disk +
                     (BLOCK_SIZE * (parent_inode -> i_block[block_count])) + total_rec_len);

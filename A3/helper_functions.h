@@ -34,4 +34,12 @@ unsigned int walkPath(unsigned char *disk, char *path);
 
 int mod_round(int x);
 
+int last_block_in_dir (struct ext2_inode *parent_inode);
+
+void set_bitmap(unsigned char *bitmap, int block_num, int bit);
+
+int find_free_inode(unsigned char *inode_bitmap);
+
+int find_free_block(unsigned char *block_bitmap);
+
 #endif
