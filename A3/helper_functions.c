@@ -150,7 +150,7 @@ struct ext2_dir_entry_2 *findDirEntryInBlock(unsigned char *disk, int blockNum, 
 	return NULL;
 }
 
-struct ext2_inode *findInodeInDir(unsigned char *disk, struct ext2_inode *inode, char *path){
+unsigned int findInodeInDir(unsigned char *disk, struct ext2_inode *inode, char *path){
 	//ensure inode is a directory
 	if ((inode->i_mode & EXT2_S_IFDIR) == EXT2_S_IFDIR){
 		int i;
@@ -163,17 +163,18 @@ struct ext2_inode *findInodeInDir(unsigned char *disk, struct ext2_inode *inode,
 				dirEntry = findDirEntryInBlock(disk, inode->i_block[i], path);
 				if(dirEntry != NULL){
 					//in this case, we found the directory entry, now we find and return the inode associated with that directory entry
-					unsigned int inodeIndex = (dirEntry->inode) - 1;
-					struct ext2_inode *inode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE + INODE_SIZE * inodeIndex);
-					return inode;
+					unsigned int inodeNumber = (dirEntry->inode);
+					//struct ext2_inode *inode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE + INODE_SIZE * inodeIndex);
+					//return inode;
+					return inodeNumber;
 				}
 			}	
 		}
 	}
-	return NULL;
+	return 0;
 }
 
-struct ext2_inode * walkPath(unsigned char *disk, char *path){
+unsigned int walkPath(unsigned char *disk, char *path){
 	char tempPath[strlen(path) + 1];
 	strcpy(tempPath, path);
 	//get the root inode
@@ -182,15 +183,17 @@ struct ext2_inode * walkPath(unsigned char *disk, char *path){
 	const char delim[2] = "/";
 	char *curr;
 	curr = strtok(tempPath, delim);
+	unsigned int inodeNumber = 0;
 	while(curr != NULL) {
-		currInode = findInodeInDir(disk, currInode, curr);
-		if (currInode == NULL){
+		inodeNumber = findInodeInDir(disk, currInode, curr);
+		if (inodeNumber == 0){
 			//There was no file/directory with the specified name
-			return NULL;
+			return 0;
 		}
+		currInode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE + INODE_SIZE * (inodeNumber - 1));
 		curr = strtok(NULL, delim);
 	}
-	return currInode;
+	return inodeNumber;
 }
 
 /*
