@@ -7,7 +7,8 @@
 #include <string.h>
 #include <sys/mman.h>
 #include "ext2.h"
-#include "helper_function.h"
+#include "helper_functions.h"
+#include <errno.h>
 
 unsigned char *disk;
 
