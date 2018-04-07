@@ -13,19 +13,6 @@
 unsigned char *disk;
 char *absolutePath;
 
-int removeInode(struct ext2_inode *inode) {
-	inode->i_dtime = (unsigned int)time(NULL);
-}
-
-void iterateDirectoryEntries(struct ext2_inode *inode, char *dirEntryName){
-	int i;
-	for(i = 0; i < NUMBER_OF_SINGLE_POINTERS; i++){
-		if(inode->i_block[i]){
-			printDirNames(inode->i_block[i], flag);	
-		}
-	}
-}
-
 void removeDirEntry(struct ext2_inode *inode, int blockNum, char *dirEntryName) {
 	struct ext2_dir_entry_2 *parentEntry;
 	struct ext2_dir_entry_2 *dirEntry = (struct ext2_dir_entry_2 *)(disk + (BLOCK_SIZE * blockNum));
@@ -37,9 +24,10 @@ void removeDirEntry(struct ext2_inode *inode, int blockNum, char *dirEntryName) 
 	entryName[dirEntry->name_len] = '\0';
 	if(strcmp(entryName, dirEntryName) == 0) {
 		//make the dirEntry blank
-		dirEntry->name = "";
-		dirEntry->name_len = 0;
-		dirEntry->inode = 0;
+		int recLen = dirEntry->rec_len;
+		memset(dirEntry, 0, dirEntry->rec_len);
+		struct ext2_dir_entry_2 *blankEntry = (struct ext2_dir_entry_2 *)(disk + (BLOCK_SIZE * blockNum));
+		blankEntry->rec_len = recLen;
 	}
 	else {
 		while(offset < BLOCK_SIZE) {
@@ -50,7 +38,7 @@ void removeDirEntry(struct ext2_inode *inode, int blockNum, char *dirEntryName) 
 			name[dirEntry->name_len] = '\0';
 			//strcmp returns 0 when the two str are equal
 			if(strcmp(name, dirEntryName) == 0){
-				parentEntry->rec_len = parentEntry->rec_len + dirEntry->rec_len);
+				parentEntry->rec_len = parentEntry->rec_len + dirEntry->rec_len;
 			}
 			//increment the offset by the size of the previous dirEntry
 			offset = offset + dirEntry->rec_len;
@@ -58,21 +46,26 @@ void removeDirEntry(struct ext2_inode *inode, int blockNum, char *dirEntryName) 
 	}
 }
 
-void createBlankDirEntry(struct ext2_dir_entry_2 *dirEntry) {
-	
+void iterateDirectoryEntries(struct ext2_inode *inode, char *dirEntryName){
+	int i;
+	for(i = 0; i < NUMBER_OF_SINGLE_POINTERS; i++){
+		if(inode->i_block[i]){
+			removeDirEntry(inode, inode->i_block[i], dirEntryName);
+		}
+	}
 }
 
 void removeDirectoryEntry(char *entryName){
 	//get path of parent directory
 	int lastSlash = last_sep_index(absolutePath);
-	char *parentDir = parent_path(lastSlack, absolutePath);
+	char *parentDir = parent_path(lastSlash, absolutePath);
 
 	//get name of parent directory
 	lastSlash = last_sep_index(absolutePath);
 	char *parentName = last_file_name(lastSlash, parentDir);
 
 	unsigned int inodeNum = walkPath(disk, parentDir);
-	struct ext2_inode *inode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE + INODE_SIZE * (inodeNumber - 1));
+	struct ext2_inode *inode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE + INODE_SIZE * (inodeNum - 1));
 	iterateDirectoryEntries(inode, entryName);
 }
 
@@ -83,7 +76,6 @@ void setBlocksFree(struct ext2_inode *inode) {
 	for (i = 0; i < 12; i++) {
 		//free all direct pointers
 		if(inode->i_block[i]) {
-			printf("success");
 			set_bitmap(blockBitmap, inode->i_block[i], 0);
 		}
 	}
@@ -92,7 +84,7 @@ void setBlocksFree(struct ext2_inode *inode) {
 		int *singleIndirectBlock = (int *)(disk + BLOCK_SIZE*indirect);
 		for (i = 0; i < NUMBER_OF_INDIRECT_POINTERS; i++) {
 			if(singleIndirectBlock[i]) {
-				printf("%d ", singleIndirectBlock[i]);
+				set_bitmap(blockBitmap, singleIndirectBlock[i], 0);
 			}
 		}
 	}
@@ -132,9 +124,11 @@ int main(int argc, char **argv){
 	//decrement link count
 	inode->i_links_count = inode->i_links_count - 1;
 	if(inode->i_links_count <= 0) {
+		inode->i_dtime = (unsigned int)time(NULL);
 		setBlocksFree(inode);
 		//remove directory entry
 		int lastSlash = last_sep_index(absolutePath);
 		char *fileName = last_file_name(lastSlash, absolutePath);
+		removeDirectoryEntry(fileName);
 	}
 }

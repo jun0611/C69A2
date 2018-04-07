@@ -190,6 +190,9 @@ unsigned int walkPath(unsigned char *disk, char *path){
 	strcpy(tempPath, path);
 	//get the root inode
 	struct ext2_inode *currInode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE + INODE_SIZE);
+	if(strcmp(path, "/") == 0){
+		return ROOT_BLOCK;
+	}
 	//Iterate through each directory/file in the path
 	const char delim[2] = "/";
 	char *curr;

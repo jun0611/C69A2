@@ -18,6 +18,7 @@
 #define THIRD_ARGUMENT 3
 #define BLOCK_BITMAP_BYTES 16
 #define NUMBER_OF_INDIRECT_POINTERS 256
+#define ROOT_BLOCK 2
 
 int last_sep_index (char *path);
 
