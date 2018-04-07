@@ -48,18 +48,18 @@ int main(int argc, char **argv) {
     char *source_file = last_file_name(last_seperator_index, source_path);
 
     // Parsing to find the Parent Path of the Destination Path
-    char last_parent_sep_index = last_seperator_index(destination_path);
+    char last_parent_sep_index = last_sep_index(destination_path);
     char *parent_destination_file = parent_path(last_parent_sep_index, destination_path);
 
     // Check if inode of parent exist
     unsigned int destination_inode = walkPath(disk, destination_path);
-    if(destination_inode != NULL) {
+    if(destination_inode == 0) {
         fprintf(stderr, "Can't find Destination Path on the EXT2 disk %s\n", destination_path);
         exit(ENOENT);
     }
 
     unsigned int parent_destination_inode = walkPath(disk, parent_destination_file);
-    if(parent_destination_inode == NULL) {
+    if(parent_destination_inode == 0) {
         fprintf(stderr, "Can't find Parent of Destination Path on the EXT2 disk %s\n", parent_destination_file);
         exit(ENOENT);
     }
@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
     // Checking if Source File exist in the Directory
     int source_name_len = strlen(source_file);
     int found = 0;
-    int *found_inode = 0; 
+    int found_inode = 0; 
     int offset = 0;
     while(offset < BLOCK_SIZE){
         struct ext2_dir_entry_2 *dirEntry = (struct ext2_dir_entry_2 *)(disk + (BLOCK_SIZE *inode_table_block) + parent_destination_inode);
@@ -83,38 +83,35 @@ int main(int argc, char **argv) {
             found_inode = dirEntry->inode;
             break;
         }
-        count += 1;
     }
     
     // Destination Location has a file with same name
     if(found == 1){
         // Overwrite the content of the file on the Disk
         // Getting to the found_inode on the Inode Table
-        struct ext2_inode *target_inode = (struct ext2_inode *)(disk + (BLOCK_SIZE *inode_table_block) + found_inode);
+        struct ext2_inode *target_inode = (struct ext2_inode *)(disk + (BLOCK_SIZE *inode_table_block) + (INODE_SIZE * found_inode));
         target_inode -> i_size = INODE_SIZE;
         // Destination Locaton File is a Directory
-        int byte_read = 0;
+        int byte_got = 0;
         char buf[BLOCK_SIZE];
 
         // Opening Source File to read
         int iblock_ptr_idx = 0;
         while((iblock_ptr_idx < 12) && (byte_got = fread(buf, 1, BLOCK_SIZE, fp)) > 0){
             unsigned int found_block;
-            found_block = target_inode -> iblock[iblock_ptr_idx];
-            char *block = disk + (free_block * (BLOCK_SIZE*inode_table_block) + found_block);
-            memcpy(block, buf, byte_got);
+            found_block = target_inode -> i_block[iblock_ptr_idx];
+            memcpy(disk + (found_block * (BLOCK_SIZE*inode_table_block) + found_block), buf, byte_got);
             target_inode -> i_size += byte_got;
             iblock_ptr_idx++;
         }
         // Big File, require indirect allocation
         if((byte_got = fread(buf, 1, BLOCK_SIZE, fp)) > 0){
-            int indirect_block_ptr = 0;
-            unsigned int indirect = inode->i_block[12];
+            int indirect_iblock_ptr = 0;
+            unsigned int indirect = target_inode->i_block[12];
             int *singleIndirectBlock = (int *)(disk + BLOCK_SIZE*indirect);
             do{ 
                 int block_num = singleIndirectBlock[indirect_iblock_ptr];
-                char *block = disk + (BLOCK_SIZE*block_num);
-                memcpy(block, buf, byte_got);
+                memcpy(disk + (BLOCK_SIZE*block_num), buf, byte_got);
                 target_inode -> i_size += byte_got;
                 indirect_iblock_ptr++;
                 }while((byte_got = fread(buf, 1, BLOCK_SIZE, fp) > 0) && (indirect_iblock_ptr < NUMBER_OF_INDIRECT_POINTERS)); 
@@ -138,28 +135,28 @@ int main(int argc, char **argv) {
     unsigned int inodes_bitmap_block = block_group->bg_inode_bitmap;
     void *inode_bitmap = (void *)(disk + inodes_bitmap_block * BLOCK_SIZE);
     int free_inode_num = find_free_inode(inode_bitmap);
-    block_group->bg_free_blocks_count = block_group->bg_free_blocks_count -= 1; 
-    block_group->bg_free_inodes_count = block_group->bg_free_inodes_count -= 1;
+    block_group->bg_free_blocks_count = block_group->bg_free_blocks_count - 1; 
+    block_group->bg_free_inodes_count = block_group->bg_free_inodes_count - 1;
 
     // Creating new Inode for Source File
     struct ext2_inode *new_inode = (struct ext2_inode *)(disk + (BLOCK_SIZE * inode_table_block) + free_inode_num);
     new_inode -> i_mode = EXT2_S_IFREG;
     new_inode -> i_size = INODE_SIZE;
     new_inode -> i_links_count = 1;
-    new_inode -> i_dtime = NULL;
-    sb -> s_inodes_count += 1;
-    sb -> s_blocks_count += 1;
+    super_block -> s_inodes_count += 1;
+    super_block -> s_blocks_count += 1;
 
     // Add the new Directory to the Destination Directory
     int block_count = 0;
-    while((parent_destination_inode -> i_block[block_count + 1]) && block_count != 15) {
+	struct ext2_inode *parentInode = (struct ext2_inode *)(disk + INODE_TABLE_BLOCK * BLOCK_SIZE + INODE_SIZE * (parent_destination_inode - 1));
+    while((parentInode -> i_block[block_count + 1]) && block_count != 15) {
         block_count ++;
     }
     // find end space in the block
     int total_rec_len = 0
     while(total_rec_len < BLOCK_SIZE) {
         struct ext2_dir_entry_2 *dir_entry = (struct ext2_dir_entry_2 *)(disk +
-            (BLOCK_SIZE * (parent_destination_inode -> i_block[block_count])) + total_rec_len);
+            (BLOCK_SIZE * (parentInode -> i_block[block_count])) + total_rec_len);
         int entry_rec_len = dir_entry -> rec_len;
         // this is the last dir entry
         if((total_rec_len + entry_rec_len) == BLOCK_SIZE) {
@@ -183,7 +180,7 @@ int main(int argc, char **argv) {
                 else {
                     //use the next block
                     struct ext2_dir_entry_2 *new_entry = (struct ext2_dir_entry_2 *)(disk +
-                   (BLOCK_SIZE * (parent_destination_inode -> i_block[block_count + 1])));    
+                   (BLOCK_SIZE * (parentInode -> i_block[block_count + 1])));    
                     new_entry -> inode = free_inode_num;
                     new_entry -> rec_len = 12;
                     new_entry -> name_len = source_name_len;
@@ -194,7 +191,7 @@ int main(int argc, char **argv) {
                 } 
                 else {
                     struct ext2_dir_entry_2 *new_entry = (struct ext2_dir_entry_2 *)(disk +
-                   (BLOCK_SIZE * (parent_destination_inode -> i_block[block_count]) + total_rec_len + entry_size));
+                   (BLOCK_SIZE * (parentInode -> i_block[block_count]) + total_rec_len + entry_size));
                     new_entry -> inode = free_inode_num;
                     new_entry -> rec_len = 12;
                     new_entry -> name_len = source_name_len;
