@@ -66,9 +66,7 @@ int main(int argc, char **argv) {
 
     // Getting Inode Table of the directory
     unsigned int inode_table_block = block_group->bg_inode_table;
-    
-    // Getting to the destination inode
-    struct ext2_inode *dest_inode = (struct ext2_inode *)(disk + (BLOCK_SIZE *inode_table_block) + parent_destination_inode);
+
     
     // Checking if Source File exist in the Directory
     int source_name_len = strlen(source_file);
@@ -234,7 +232,7 @@ int main(int argc, char **argv) {
             void *block_bitmap = (void *) (disk + blocks_bitmap_block * BLOCK_SIZE);
             int free_indirect_direct_block = find_free_block(block_bitmap);
             singleIndirectBlock[indirect_iblock_ptr] = free_indirect_direct_block;
-            memcpy(free_indirect_direct_block, buf, byte_got);
+            memcpy(disk + BLOCK_SIZE * free_indirect_direct_block, buf, byte_got);
             new_inode -> i_size += byte_got;
             set_bitmap(block_bitmap, free_indirect_direct_block, 1);
             indirect_iblock_ptr++;
