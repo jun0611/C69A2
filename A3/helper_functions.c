@@ -217,3 +217,10 @@ int mod_round(int x) {
     return res;
 }
 
+int last_block_in_dir (struct ext2_inode *parent_inode) {
+    int block_count = 0;
+     while((parent_inode -> i_block[block_count + 1]) && block_count != 15) {
+        block_count ++;
+    }
+    return block_count;
+}
